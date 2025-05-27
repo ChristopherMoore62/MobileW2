@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.VisualScripting.FullSerializer;
 using UnityEngine;
+using UnityEngine.XR;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerBehaviour : MonoBehaviour
@@ -16,6 +17,9 @@ public class PlayerBehaviour : MonoBehaviour
     [Tooltip("How fast the ball moves forward automatically")]
     [Range(0, 10)]
     public float rollSpeed = 5;
+
+    [SerializeField] private Transform meshTransform;
+    private float totalRotationX = 0f;
 
     public enum MobileHorizMovement
     {
@@ -68,16 +72,16 @@ public class PlayerBehaviour : MonoBehaviour
     {
         //Check if we are running either in the Unity editor or in a standalone build
 
-        #if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
+#if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
 
         //if the mouse is tapped
         if (Input.GetMouseButtonDown(0))
         {
-            Vector2 screenPos = new Vector2 (Input.mousePosition.x, Input.mousePosition.y);
+            Vector2 screenPos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
             TouchObjects(screenPos);
         }
 
-        #elif UNITY_IOS || UNITY_ANDROID
+#elif UNITY_IOS || UNITY_ANDROID
             
             if (Input.touchCount > 0)
             {
@@ -86,7 +90,7 @@ public class PlayerBehaviour : MonoBehaviour
                 SwipeTeleport(touch);
                 ScalePlayer();
             }
-        #endif
+#endif
     }
 
     /// <summary>
@@ -99,7 +103,7 @@ public class PlayerBehaviour : MonoBehaviour
         var horizontalSpeed = Input.GetAxis("Horizontal") * dodgeSpeed;
 
         /* Check if we are running either in the Unity editor or in a * standalone build.*/
-        #if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
+#if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
         /* If the mouse is held down (or the screen is tapped * on Mobile */
         if (Input.GetMouseButton(0))
         {
@@ -108,7 +112,7 @@ public class PlayerBehaviour : MonoBehaviour
         }
 
         /* Check if we are running on a mobile device */
-        #elif UNITY_IOS || UNITY_ANDROID
+#elif UNITY_IOS || UNITY_ANDROID
         switch (horizMovement)
         {
             case MobileHorizMovement.Accelerometer:
@@ -125,7 +129,7 @@ public class PlayerBehaviour : MonoBehaviour
                 }
                 break;
         }
-        #endif
+#endif
 
         // If the mouse is held down (or the screen is pressed * on Mobile)
         if (Input.touchCount > 0)
@@ -334,5 +338,23 @@ public class PlayerBehaviour : MonoBehaviour
             // component attached to this object
             hit.transform.SendMessage("PlayerTouch", SendMessageOptions.DontRequireReceiver);
         }
+    }
+
+    private void LateUpdate()
+    {
+        if (meshTransform == null) return;
+
+        // Calculate how much to rotate around X this frame
+        float forwardSpeed = rb.velocity.z;
+        float rotationAmount = forwardSpeed * Time.deltaTime * 20f; // tweak multiplier
+
+        // Accumulate total X rotation
+        totalRotationX += rotationAmount;
+
+        // Set rotation only on the X-axis, lock Y/Z
+        meshTransform.rotation = Quaternion.Euler(totalRotationX, 0f, 0f);
+
+        // Optional: keep the mesh's position synced with the Rigidbody
+        meshTransform.position = transform.position;
     }
 }

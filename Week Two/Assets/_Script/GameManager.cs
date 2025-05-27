@@ -98,7 +98,7 @@ public class GameManager : MonoBehaviour
             // Store its position for us to use
             var spawnPos = spawnPoint.transform.position;
             // Create our obstacle
-            var newObstacle = Instantiate(obstacle, spawnPos, Quaternion.identity);
+            var newObstacle = Instantiate(obstacle, spawnPos, Quaternion.Euler(-90f, 0f, 0f));
             // Have it parented to the tile
             newObstacle.SetParent(spawnPoint.transform);
         }
