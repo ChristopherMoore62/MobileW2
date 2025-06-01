@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Unity.VisualScripting;
 using Unity.VisualScripting.FullSerializer;
 using UnityEngine;
 using UnityEngine.XR;
+using static UnityEngine.AudioSettings;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerBehaviour : MonoBehaviour
@@ -26,6 +28,9 @@ public class PlayerBehaviour : MonoBehaviour
         Accelerometer,
         ScreenTouch
     }
+
+    private MobileJoystick joystick;
+
     [Tooltip("What horizontal movement type should be used")]
     public MobileHorizMovement horizMovement = MobileHorizMovement.Accelerometer;
 
@@ -63,6 +68,8 @@ public class PlayerBehaviour : MonoBehaviour
         rb = GetComponent<Rigidbody>();
 
         minSwipeDistancePixels = minSwipeDistance * Screen.dpi;
+
+        joystick = GameObject.FindObjectOfType<MobileJoystick>();
     }
 
     /// <summary>
@@ -120,31 +127,38 @@ public class PlayerBehaviour : MonoBehaviour
         {
             return;
         }
-
         // Check if we're moving to the side
         var horizontalSpeed = Input.GetAxis("Horizontal") * dodgeSpeed;
-
-        /* Check if we are running either in the Unity editor or in a * standalone build.*/
-#if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
-        /* If the mouse is held down (or the screen is tapped * on Mobile */
-        if (Input.GetMouseButton(0))
+        /* If the joystick is active and the player is moving the joystick, override the value */
+        if (joystick && joystick.axisValue.x != 0)
         {
-            var screenPos = Input.mousePosition;
-            horizontalSpeed = CalculateMovement(screenPos);
+            horizontalSpeed = joystick.axisValue.x * dodgeSpeed;
         }
 
+        /* Check if we are running either in the Unity editor or in a standalone build.*/
+#if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
+        /* If the mouse is held down (or the screen is tapped on Mobile */
+        if (Input.GetMouseButton(0))
+        {
+            if (!joystick)
+            {
+                var screenPos = Input.mousePosition;
+                horizontalSpeed = CalculateMovement(screenPos);
+            }
+        }
         /* Check if we are running on a mobile device */
-#elif UNITY_IOS || UNITY_ANDROID
+#elif UNITY_IOS || UNITY_ANDROID                           
         switch (horizMovement)
         {
             case MobileHorizMovement.Accelerometer:
-                horizontalSpeed = Input.acceleration.x *
-                    dodgeSpeed;
+                /* Move player based on accelerometer direction */
+                horizontalSpeed = Input.acceleration.x * dodgeSpeed;
                 break;
-
             case MobileHorizMovement.ScreenTouch:
-                if (Input.touchCount > 0)
+                /* Check if Input registered more than zero touches */
+                if (!joystick && Input.touchCount > 0)
                 {
+                    /* Store the first touch detected */
                     var firstTouch = Input.touches[0];
                     var screenPos = firstTouch.position;
                     horizontalSpeed = CalculateMovement(screenPos);
@@ -152,34 +166,6 @@ public class PlayerBehaviour : MonoBehaviour
                 break;
         }
 #endif
-
-        // If the mouse is held down (or the screen is pressed * on Mobile)
-        if (Input.touchCount > 0)
-        {
-            /* Get a reference to the camera for converting
-            * between spaces */
-            var cam = UnityEngine.Camera.main;
-
-            /* Store the first touch detected */
-            var firstTouch = Input.touches[0];
-
-            /* Converts mouse position to a 0 to 1 range */
-            var screenPos = Input.mousePosition;
-            var viewPos = cam.ScreenToViewportPoint(screenPos);
-            float xMove = 0;
-            /* If we press the right side of the screen */
-            if (viewPos.x < 0.5f)
-            {
-                xMove = -1;
-            }
-            else
-            {
-                /* Otherwise we're on the left */
-                xMove = 1;
-            }
-            /* Replace horizontalSpeed with our own value */
-            horizontalSpeed = xMove * dodgeSpeed;
-        }
         rb.AddForce(horizontalSpeed, 0, rollSpeed);
     }
 
