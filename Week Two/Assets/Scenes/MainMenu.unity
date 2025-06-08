@@ -152,11 +152,11 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1130890801}
+  m_Father: {fileID: 1531636539}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -128}
+  m_AnchoredPosition: {x: 0.00067608384, y: -128.0008}
   m_SizeDelta: {x: 1168, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &7584461
@@ -816,12 +816,11 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2141619956}
-  - {fileID: 7584460}
   m_Father: {fileID: 2037070202}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.000061035156}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0.00012207031, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1130890802
@@ -904,7 +903,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   highScoreText: {fileID: 7584461}
-  controlPanel: {fileID: 0}
+  controlPanel: {fileID: 1531636538}
 --- !u!4 &1184511545
 Transform:
   m_ObjectHideFlags: 0
@@ -953,6 +952,7 @@ RectTransform:
   m_Children:
   - {fileID: 718791739}
   - {fileID: 553808776}
+  - {fileID: 7584460}
   m_Father: {fileID: 279629651}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
