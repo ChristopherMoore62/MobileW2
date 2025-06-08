@@ -162,6 +162,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
     Android: com.ChrisTMoore.MobileDevChapterOne_CTM
+    Standalone: com.ChrisTMoore.MobileDevChapterOne-CTM
   buildNumber:
     Standalone: 0
     VisionOS: 0

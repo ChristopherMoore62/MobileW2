@@ -1,8 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using TMPro;
+using Unity.VisualScripting;
 using Unity.VisualScripting.FullSerializer;
+using UnityEditor.Build.Player;
 using UnityEngine;
+using UnityEngine.XR;
+using static UnityEngine.AudioSettings;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerBehaviour : MonoBehaviour
@@ -17,11 +22,17 @@ public class PlayerBehaviour : MonoBehaviour
     [Range(0, 10)]
     public float rollSpeed = 5;
 
+    [SerializeField] private Transform meshTransform;
+    private float totalRotationX = 0f;
+
     public enum MobileHorizMovement
     {
         Accelerometer,
         ScreenTouch
     }
+
+    private MobileJoystick joystick;
+
     [Tooltip("What horizontal movement type should be used")]
     public MobileHorizMovement horizMovement = MobileHorizMovement.Accelerometer;
 
@@ -52,6 +63,39 @@ public class PlayerBehaviour : MonoBehaviour
     /// </summary>
     [SerializeField] private float currentScale = 1;
 
+    [Header("Object References")]
+    public TextMeshProUGUI scoreText;
+
+    private float score = 0;
+    public float Score
+    {
+        get
+        {
+            return score;
+        }
+        set
+        {
+            score = value;
+            /* Check if scoreText has been assigned */
+            if (scoreText == null)
+            {
+                Debug.LogError("Score Text is not set. " +
+                "Please go to the Inspector and assign it");
+                /* If not assigned, don't try to update it. */
+                return;
+            }
+            /* Update the text to display the whole number portion of the score */
+            int cleanScore = (int)score;
+            scoreText.text = cleanScore.ToString();
+
+            // finally, SAVE the highscore if its higher than we have saved
+            if (cleanScore > PlayerPrefs.GetInt("score"))
+            {
+                PlayerPrefs.SetInt("score", cleanScore);
+            }
+        }
+    }
+
     // Start is called before the first frame update
     public void Start()
     {
@@ -59,6 +103,10 @@ public class PlayerBehaviour : MonoBehaviour
         rb = GetComponent<Rigidbody>();
 
         minSwipeDistancePixels = minSwipeDistance * Screen.dpi;
+
+        joystick = GameObject.FindObjectOfType<MobileJoystick>();
+
+        Score = 0;
     }
 
     /// <summary>
@@ -66,18 +114,34 @@ public class PlayerBehaviour : MonoBehaviour
     /// </summary>
     private void Update()
     {
+        // Using Keyboard/Controller to toggle pause menu
+        if (Input.GetButtonDown("Cancel"))
+        {
+            // Get the pause menu
+            var pauseBehaviour = GameObject.FindObjectOfType<PauseScreenBehaviour>();
+
+            // Toggle the value
+            pauseBehaviour.SetPauseMenu(!PauseScreenBehaviour.paused);
+        }
+
+        /* If the game is paused, don't do anything */
+        if (PauseScreenBehaviour.paused)
+        {
+            return;
+        }
+
         //Check if we are running either in the Unity editor or in a standalone build
 
-        #if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
+#if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
 
         //if the mouse is tapped
         if (Input.GetMouseButtonDown(0))
         {
-            Vector2 screenPos = new Vector2 (Input.mousePosition.x, Input.mousePosition.y);
+            Vector2 screenPos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
             TouchObjects(screenPos);
         }
 
-        #elif UNITY_IOS || UNITY_ANDROID
+#elif UNITY_IOS || UNITY_ANDROID
             
             if (Input.touchCount > 0)
             {
@@ -86,7 +150,7 @@ public class PlayerBehaviour : MonoBehaviour
                 SwipeTeleport(touch);
                 ScalePlayer();
             }
-        #endif
+#endif
     }
 
     /// <summary>
@@ -95,65 +159,53 @@ public class PlayerBehaviour : MonoBehaviour
     /// </summary>
     void FixedUpdate()
     {
-        // Check if we're moving to the side
-        var horizontalSpeed = Input.GetAxis("Horizontal") * dodgeSpeed;
-
-        /* Check if we are running either in the Unity editor or in a * standalone build.*/
-        #if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
-        /* If the mouse is held down (or the screen is tapped * on Mobile */
-        if (Input.GetMouseButton(0))
+        /* If the game is paused, don't do anything */
+        if (PauseScreenBehaviour.paused)
         {
-            var screenPos = Input.mousePosition;
-            horizontalSpeed = CalculateMovement(screenPos);
+            return;
         }
 
+        Score += Time.deltaTime;
+
+        // Check if we're moving to the side
+        var horizontalSpeed = Input.GetAxis("Horizontal") * dodgeSpeed;
+        /* If the joystick is active and the player is moving the joystick, override the value */
+        if (joystick && joystick.axisValue.x != 0)
+        {
+            horizontalSpeed = joystick.axisValue.x * dodgeSpeed;
+        }
+
+        /* Check if we are running either in the Unity editor or in a standalone build.*/
+#if UNITY_STANDALONE || UNITY_WEBPLAYER || UNITY_EDITOR
+        /* If the mouse is held down (or the screen is tapped on Mobile */
+        if (Input.GetMouseButton(0))
+        {
+            if (!joystick)
+            {
+                var screenPos = Input.mousePosition;
+                horizontalSpeed = CalculateMovement(screenPos);
+            }
+        }
         /* Check if we are running on a mobile device */
-        #elif UNITY_IOS || UNITY_ANDROID
+#elif UNITY_IOS || UNITY_ANDROID                           
         switch (horizMovement)
         {
             case MobileHorizMovement.Accelerometer:
-                horizontalSpeed = Input.acceleration.x *
-                    dodgeSpeed;
+                /* Move player based on accelerometer direction */
+                horizontalSpeed = Input.acceleration.x * dodgeSpeed;
                 break;
-
             case MobileHorizMovement.ScreenTouch:
-                if (Input.touchCount > 0)
+                /* Check if Input registered more than zero touches */
+                if (!joystick && Input.touchCount > 0)
                 {
+                    /* Store the first touch detected */
                     var firstTouch = Input.touches[0];
                     var screenPos = firstTouch.position;
                     horizontalSpeed = CalculateMovement(screenPos);
                 }
                 break;
         }
-        #endif
-
-        // If the mouse is held down (or the screen is pressed * on Mobile)
-        if (Input.touchCount > 0)
-        {
-            /* Get a reference to the camera for converting
-            * between spaces */
-            var cam = UnityEngine.Camera.main;
-
-            /* Store the first touch detected */
-            var firstTouch = Input.touches[0];
-
-            /* Converts mouse position to a 0 to 1 range */
-            var screenPos = Input.mousePosition;
-            var viewPos = cam.ScreenToViewportPoint(screenPos);
-            float xMove = 0;
-            /* If we press the right side of the screen */
-            if (viewPos.x < 0.5f)
-            {
-                xMove = -1;
-            }
-            else
-            {
-                /* Otherwise we're on the left */
-                xMove = 1;
-            }
-            /* Replace horizontalSpeed with our own value */
-            horizontalSpeed = xMove * dodgeSpeed;
-        }
+#endif
         rb.AddForce(horizontalSpeed, 0, rollSpeed);
     }
 
@@ -334,5 +386,23 @@ public class PlayerBehaviour : MonoBehaviour
             // component attached to this object
             hit.transform.SendMessage("PlayerTouch", SendMessageOptions.DontRequireReceiver);
         }
+    }
+
+    private void LateUpdate()
+    {
+        if (meshTransform == null) return;
+
+        // Calculate how much to rotate around X this frame
+        float forwardSpeed = rb.velocity.z;
+        float rotationAmount = forwardSpeed * Time.deltaTime * 20f; // tweak multiplier
+
+        // Accumulate total X rotation
+        totalRotationX += rotationAmount;
+
+        // Set rotation only on the X-axis, lock Y/Z
+        meshTransform.rotation = Quaternion.Euler(totalRotationX, 0f, 0f);
+
+        // Optional: keep the mesh's position synced with the Rigidbody
+        meshTransform.position = transform.position;
     }
 }
